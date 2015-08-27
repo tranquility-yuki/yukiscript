@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         dobroarchreader
 // @namespace    udp://insomnia/*
-// @version      0.2
+// @version      0.4
 // @description  Write something useful!
 // @match        *://dobrochan.com/*/res/*
 // @match        *://dobrochan.org/*/res/*
@@ -154,31 +154,50 @@ function saveThread(){
 
 	var zip = new JSZip(),		
 		fname = 'dobrochan-' + parsedURL.board + '-' + parsedURL.thread + '-arch',
-		files = [];
-	
-	zip.file(fname + ".html", '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' +
-				$('html').html().replace(/href="\//g, 'href="').replace(/src="\//g, 'src="').replace(/rel="alternate\s/g, 'rel="')
-				 .replace(/<script\ssrc="data[^"]+"><\/script>/g, '')  + '<script>Hanabira.URL = ' + JSON.stringify(parsedURL) + ';get_opts();</script></html>');
+		files = [], threadHtml, cssHead = '';
 
-	files.push($('head script[src^="/js/jquery-"]').first().attr('src'), $('head script[src^="/js/hanabira-"]').first().attr('src'), '/images/waiting0.gif', '/images/blank.png', '/images/blank-double.png',
-		'/images/waiting1.gif', '/images/waiting2.gif', '/images/delete.png', '/images/delete_selected.png', '/images/hidethread.png', '/images/signed-on.png','/images/close.png',
-		'/images/signed-off8.png', '/images/close.png', '/images/reply.png', '/images/quote.png', '/images/music/add.png', '/images/music/play.png', '/images/view.png',
-		'/images/edit.gif', '/images/google.png', '/images/booru.png', '/images/music/icons.png', '/images/music/bar_load.png', '/images/music/bar_buffer.png',
-		'/images/music/bar_play.png', '/images/music/volume_bar.png', '/images/music/volume_bar_value.png', '/images/jcrop.gif', '/favicon.ico', '/images/r-18g.png', '/images/r-18.png', '/images/r-15.png');
 
 	$('head link[rel="stylesheet"], head link[rel="alternate stylesheet"]').each(function(i){
 		var href = $(this).attr('href');
 
 		if(href.match(/\/css/)){
 			files.push(href);
+			if($(this).attr('title')){
+				cssHead += '<link title="' + $(this).attr('title') + '" href="'+href+'" type="text/css" rel="stylesheet" />';
+			}else{
+				cssHead += '<link href="'+href+'" type="text/css" rel="stylesheet" />';
+			}
 		}
 	});
+	
+	threadHtml = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' +
+		         '<head><title>'+ $('head title').text()+ '</title><meta http-equiv="Content-Type" content="text/html;charset=utf-8" /><link rel="icon" type="image/x-icon" href="/favicon.ico" />' + 
+		         cssHead + 
+		         '<script type="text/javascript" src="' + $('head script[src^="/js/jquery-"]').first().attr('src') + '"></script>' +
+		         '<script type="text/javascript" src="' + $('head script[src^="/js/hanabira-"]').first().attr('src') + '"></script>' +
+		         '</head><body onload="initialize()">' +
+		         '<div class="stylebar">' + $('.stylebar').first().html() + '</div>' +
+		         '<div class="logo">' + $('.logo').first().html() + '</div><hr/>' +
+		         '<div class="thread" id="thread_' + parsedURL.thread + '">' + $('div.thread').html() + '</div><br clear="left"><hr/>' +
+		         '<div class="stylebar">' + $('.stylebar').first().html() + '</div>' +
+		         '</body></html><script>Hanabira.URL = ' + JSON.stringify(parsedURL) + ';get_opts();Highlight = function(event, num, el){var hl;var post = $(el || "#reply"+num);if (post.length){if (Hanabira.Highlighted.length){if (Hanabira.Highlighted[0] == num) return;hl = Hanabira.Highlighted[1];hl.attr("class", "reply"); } post.attr("class", "highlight"); Hanabira.Highlighted = [num, post]; window.location.hash="i"+num; } event.preventDefault();}</script></html>';
+
+	zip.file(fname + ".html", threadHtml.replace(/href="\//g, 'href="').replace(/src="\//g, 'src="').replace(/rel="alternate\s/g, 'rel="')
+				 .replace(/<script\ssrc="data[^"]+"><\/script>/g, ''));
+
+	files.push($('head script[src^="/js/jquery-"]').first().attr('src'), $('head script[src^="/js/hanabira-"]').first().attr('src'), '/images/waiting0.gif', '/images/blank.png', '/images/blank-double.png',
+		'/images/waiting1.gif', '/images/waiting2.gif', '/images/delete.png', '/images/delete_selected.png', '/images/hidethread.png', '/images/signed-on.png','/images/close.png',
+		'/images/signed-off8.png', '/images/close.png', '/images/reply.png', '/images/quote.png', '/images/music/add.png', '/images/music/play.png', '/images/view.png',
+		'/images/edit.gif', '/images/google.png', '/images/booru.png', '/images/music/icons.png', '/images/music/bar_load.png', '/images/music/bar_buffer.png',
+		'/images/music/bar_play.png', '/images/music/volume_bar.png', '/images/music/volume_bar_value.png', '/images/jcrop.gif', '/favicon.ico', '/images/r-18g.png', '/images/r-18.png', '/images/r-15.png', '/images/illegal.png',
+		$('.logo img.banner').first().attr('src') );
+
 
 	$('.fileinfo a::first-child').each(function(i){
 		files.push($(this).attr('href'));
 	});
 
-	$('.file a img.thumb').each(function(i){
+	$('.file a img.thumb, img.geoicon').each(function(i){
 		files.push($(this).attr('src'));
 	});
 
@@ -191,7 +210,7 @@ function saveThread(){
 					zip.file(fileURL, utf8ArrToStr(new Uint8Array(arrayBuffer)).replace(/url\(\//g, 'url(../').replace(/url\('\//g, 'url(\'../').replace(/url\("\//g, 'url(".//'));
 				}else if(fileURL.match(/\/js\/hanabira/)){
 					zip.file(fileURL, utf8ArrToStr(new Uint8Array(arrayBuffer)).replace(/Hanabira\.URL\s=\sParseUrl\(\);/g, 'Hanabira.URL = ' + JSON.stringify(parsedURL) + ';')
-						.replace(/set_stylesheet\(get_cookie\("wakabastyle"\)\|\|get_preferred_stylesheet\(\)\);/g, 'set_stylesheet(' + (get_cookie("wakabastyle")||get_preferred_stylesheet()) + ');')
+						.replace(/set_stylesheet\(get_cookie\("wakabastyle"\)\|\|get_preferred_stylesheet\(\)\);/g, 'set_stylesheet("' + (get_cookie("wakabastyle")||get_preferred_stylesheet()) + '");')
 					    .replace(/get_cookie\('settings'\)/g, "'" + get_cookie('settings') + "'"));
 				}else{
 					zip.file(fileURL, arrayBuffer, {binary: true});
@@ -210,6 +229,10 @@ function saveThread(){
 
 		if (files.length > 0) {
 			fileURL = files.pop();
+			if(!fileURL) {
+				setTimeout(processFiles, 0);
+				return;
+			}
 
 			if (files.length !== 0) {
 				$('#dobroarch_btn_save_thread_info').text('Saving: ' + files.length);           
@@ -282,7 +305,7 @@ function renderFiles(files, threadId, postId){
 
 function renderPost(post, threadId){
 	var out = 
-		'<a name="i3843065"></a>' +
+		'<a name="i' + post.display_id + '"></a>' +
 		'    <label>' +
 		(post.subject ? '        <span class="replytitle">' + post.subject +'</span> ' : '') +
 		(post.name ? '        <span class="postername">' + post.name +'</span> ' : '<span class="postername">Анонимус</span> ') +		
@@ -291,9 +314,8 @@ function renderPost(post, threadId){
 		'    <span class="reflink"><a href="/' + parsedURL.board + '/res/' + threadId + '.xhtml#' + post.display_id + '">No.' + post.display_id + '</a></span>' +
 		'    <br />' +
 		renderFiles(post.files, threadId, post.display_id) + 
-		'    <div class="postbody"><div class="message">' + post.message_html + '</div></div>' +
-		'    <div class="abbrev"></div>' +
-		'</div>';
+		'    <div class="postbody">' + post.message_html + '</div>' +
+		'    <div class="abbrev"></div>';
 
 	if(post.op) return '<div id="post_' + post.display_id + '" class="oppost post">' + out + '</div>';
 	
@@ -319,8 +341,30 @@ if($('center h2').text().match(/.+403$/)){
 		$('#arch_tryapi').attr('disabled','disabled');
 		$.getJSON( "/api/thread/" + parsedURL.board + "/" + parsedURL.thread + "/all.json?new_format&message_html&board&thread", function(data) {
 			$('center').replaceWith(renderThread(data));
+
+	        $('.thread .post').each(function(index){
+	            var r = $(this),
+	                postID = r.attr('id').replace('post_', ''),
+	                replyLink = '<a href="/'+parsedURL.board+'/res/'+parsedURL.thread+'.xhtml#i'+postID+'" onmouseover="ShowRefPost(event,\''+
+	                parsedURL.board+'\', '+parsedURL.thread+', '+postID+')" onclick="Highlight(event, \''+postID+
+	                '\')" style="font-size: 66%; font-style: italic;" class="yukiReplyLinks">&gt;&gt;'+postID+'&nbsp;&nbsp;</a>',
+	                links = {};
+
+	            r.find('.message a').each(function(j){
+	                var l = $(this);
+
+	                if(l.text().match(/^>>/)){
+	                    var ref = l.text().replace('>>', '');
+	                    links[ref] = ref;                   
+	                }
+	            });
+
+	            $.each(links, function(key, value){$('#post_' + value + ' .abbrev').append($(replyLink));});
+
+	        });
+
 			$('.oppost .reflink').append('<span>&nbsp;[<a href="javascript:;" id="dobroarch_btn_save_thread">save thread</a><span id="dobroarch_btn_save_thread_info"></span>]</span>');
-	        $('#dobroarch_btn_save_thread').on('click', saveThread);          
+	        $('#dobroarch_btn_save_thread').on('click', saveThread);         
 		});
 	});
 }
